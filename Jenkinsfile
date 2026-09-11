@@ -77,7 +77,8 @@ pipeline {
                         dir('coverage') {
                             echo 'Running Code Coverage Analysis'
                             checkout scm
-                            sh 'mvn clean test jacoco:report'
+                    
+                            sh 'mvn clean package jacoco:report'
                         }
                     }
                 }
