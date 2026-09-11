@@ -45,37 +45,40 @@ pipeline {
 
                 stage('Code Stability') {
                     when {
-                        expression {
-                            !params.SKIP_STABILITY
-                        }
+                        expression { !params.SKIP_STABILITY }
                     }
                     steps {
-                        echo 'Running Code Stability Tests'
-                        sh 'mvn test'
+                        dir('stability') {
+                            echo 'Running Code Stability Tests'
+                            checkout scm
+                            sh 'mvn clean test'
+                        }
                     }
                 }
 
                 stage('Code Quality Analysis') {
                     when {
-                        expression {
-                            !params.SKIP_QUALITY
-                        }
+                        expression { !params.SKIP_QUALITY }
                     }
                     steps {
-                        echo 'Running Code Quality Analysis'
-                        sh 'mvn verify'
+                        dir('quality') {
+                            echo 'Running Code Quality Analysis'
+                            checkout scm
+                            sh 'mvn clean verify'
+                        }
                     }
                 }
 
                 stage('Code Coverage Analysis') {
                     when {
-                        expression {
-                            !params.SKIP_COVERAGE
-                        }
+                        expression { !params.SKIP_COVERAGE }
                     }
                     steps {
-                        echo 'Running Code Coverage Analysis'
-                        sh 'mvn test jacoco:report'
+                        dir('coverage') {
+                            echo 'Running Code Coverage Analysis'
+                            checkout scm
+                            sh 'mvn clean test jacoco:report'
+                        }
                     }
                 }
             }
@@ -85,13 +88,13 @@ pipeline {
             steps {
                 echo 'Generating Reports'
 
-                junit 'target/surefire-reports/*.xml'
+                junit '*/target/surefire-reports/*.xml'
 
                 publishHTML([
                     allowMissing: true,
                     alwaysLinkToLastBuild: true,
                     keepAll: true,
-                    reportDir: 'target/site/jacoco',
+                    reportDir: 'coverage/target/site/jacoco',
                     reportFiles: 'index.html',
                     reportName: 'JaCoCo Coverage Report'
                 ])
@@ -112,7 +115,7 @@ pipeline {
                 echo 'Publishing Java Artifact'
 
                 archiveArtifacts(
-                    artifacts: 'target/*.jar',
+                    artifacts: 'coverage/target/*.jar',
                     fingerprint: true
                 )
             }
@@ -120,7 +123,6 @@ pipeline {
     }
 
     post {
-
         success {
             echo 'SUCCESS: Build and artifact publication completed successfully.'
         }
