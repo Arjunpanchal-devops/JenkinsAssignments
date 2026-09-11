@@ -143,6 +143,19 @@ pipeline {
                 color: 'good',
                 message: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER} completed successfully. Artifact published."
             )
+
+            emailext(
+                to: 'arjunrpanchal09@gmail.com',
+                subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
+                    <h2>Jenkins Build Successful</h2>
+                    <p><b>Job:</b> ${env.JOB_NAME}</p>
+                    <p><b>Build Number:</b> #${env.BUILD_NUMBER}</p>
+                    <p><b>Status:</b> SUCCESS</p>
+                    <p>All required stages completed successfully.</p>
+                    <p>Java artifact was published successfully.</p>
+                """
+            )
         }
 
         failure {
@@ -153,6 +166,19 @@ pipeline {
                 color: 'danger',
                 message: "FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER} failed. Check Jenkins console."
             )
+
+            emailext(
+                to: 'arjunrpanchal09@gmail.com',
+                subject: "FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
+                    <h2>Jenkins Build Failed</h2>
+                    <p><b>Job:</b> ${env.JOB_NAME}</p>
+                    <p><b>Build Number:</b> #${env.BUILD_NUMBER}</p>
+                    <p><b>Status:</b> FAILURE</p>
+                    <p>Build or artifact publication failed.</p>
+                    <p>Please check the Jenkins console for details.</p>
+                """
+            )
         }
 
         aborted {
@@ -162,6 +188,18 @@ pipeline {
                 channel: '#all-jenkins-workspace',
                 color: 'warning',
                 message: "ABORTED: ${env.JOB_NAME} #${env.BUILD_NUMBER} was aborted or publication was denied."
+            )
+
+            emailext(
+                to: 'arjunrpanchal09@gmail.com',
+                subject: "ABORTED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
+                    <h2>Jenkins Build Aborted</h2>
+                    <p><b>Job:</b> ${env.JOB_NAME}</p>
+                    <p><b>Build Number:</b> #${env.BUILD_NUMBER}</p>
+                    <p><b>Status:</b> ABORTED</p>
+                    <p>The build was aborted or publication was denied.</p>
+                """
             )
         }
     }
