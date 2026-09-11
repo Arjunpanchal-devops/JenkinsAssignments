@@ -1,5 +1,4 @@
 pipeline {
-
     agent any
 
     options {
@@ -45,11 +44,15 @@ pipeline {
 
                 stage('Code Stability') {
                     when {
-                        expression { !params.SKIP_STABILITY }
+                        expression {
+                            !params.SKIP_STABILITY
+                        }
                     }
+
                     steps {
+                        echo 'Running Code Stability Tests'
+
                         dir('stability') {
-                            echo 'Running Code Stability Tests'
                             checkout scm
                             sh 'mvn clean test'
                         }
@@ -58,11 +61,15 @@ pipeline {
 
                 stage('Code Quality Analysis') {
                     when {
-                        expression { !params.SKIP_QUALITY }
+                        expression {
+                            !params.SKIP_QUALITY
+                        }
                     }
+
                     steps {
+                        echo 'Running Code Quality Analysis'
+
                         dir('quality') {
-                            echo 'Running Code Quality Analysis'
                             checkout scm
                             sh 'mvn clean verify'
                         }
@@ -71,13 +78,16 @@ pipeline {
 
                 stage('Code Coverage Analysis') {
                     when {
-                        expression { !params.SKIP_COVERAGE }
+                        expression {
+                            !params.SKIP_COVERAGE
+                        }
                     }
+
                     steps {
+                        echo 'Running Code Coverage Analysis'
+
                         dir('coverage') {
-                            echo 'Running Code Coverage Analysis'
                             checkout scm
-                    
                             sh 'mvn clean package jacoco:report'
                         }
                     }
@@ -89,7 +99,7 @@ pipeline {
             steps {
                 echo 'Generating Reports'
 
-                junit '*/target/surefire-reports/*.xml'
+                junit 'coverage/target/surefire-reports/*.xml'
 
                 publishHTML([
                     allowMissing: true,
@@ -124,16 +134,35 @@ pipeline {
     }
 
     post {
+
         success {
             echo 'SUCCESS: Build and artifact publication completed successfully.'
+
+            slackSend(
+                channel: '#all-jenkins-workspace',
+                color: 'good',
+                message: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER} completed successfully. Artifact published."
+            )
         }
 
         failure {
             echo 'FAILURE: Build or artifact publication failed.'
+
+            slackSend(
+                channel: '#all-jenkins-workspace',
+                color: 'danger',
+                message: "FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER} failed. Check Jenkins console."
+            )
         }
 
         aborted {
             echo 'ABORTED: Build was aborted or publication was denied.'
+
+            slackSend(
+                channel: '#all-jenkins-workspace',
+                color: 'warning',
+                message: "ABORTED: ${env.JOB_NAME} #${env.BUILD_NUMBER} was aborted or publication was denied."
+            )
         }
     }
 }
