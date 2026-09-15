@@ -1,0 +1,20 @@
+---
+- name: Assignment 6 Ansible Deployment
+  hosts: all
+
+  tasks:
+    - name: Display deployment information
+      debug:
+        msg: "Deploying to {{ environment }} using {{ code_base_path }}"
+
+    - name: Create deployment directory
+      file:
+        path: "/tmp/{{ code_base_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Create deployment status file
+      copy:
+        content: "Ansible deployment successful in {{ environment }} environment"
+        dest: "/tmp/{{ code_base_path }}/deployment-status.txt"
+        mode: '0644'
