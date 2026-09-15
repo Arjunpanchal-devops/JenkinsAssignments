@@ -2,6 +2,11 @@
 
 node {
 
+    stage('Clone') {
+        echo 'Cloning project repository'
+        checkout scm
+    }
+
     stage('Load Configuration') {
 
         def configFile = readFile('Assignment-6/config/config.properties')
