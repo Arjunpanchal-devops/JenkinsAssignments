@@ -1,3 +1,4 @@
+```groovy
 node {
 
     properties([
@@ -83,19 +84,25 @@ node {
 
         stage('Approval') {
 
-            try {
+            def decision = input(
+                message: 'Approve artifact publication?',
+                parameters: [
+                    choice(
+                        name: 'PUBLICATION_DECISION',
+                        choices: ['Approve', 'Deny'],
+                        description: 'Select whether the artifact should be published'
+                    )
+                ]
+            )
 
-                input(
-                    message: 'Approve artifact publication?',
-                    ok: 'Approve'
-                )
+            if (decision == 'Approve') {
 
                 echo 'Publication APPROVED.'
 
-            } catch (err) {
+            } else {
 
                 echo 'Publication DENIED.'
-                error('Artifact publication was denied.')
+                error('Artifact publication was denied by the user.')
 
             }
         }
@@ -146,6 +153,7 @@ Job: ${env.JOB_NAME}
 Build: #${env.BUILD_NUMBER}
 Status: SUCCESS
 
+All required stages completed successfully.
 Artifact publication completed successfully.
 """
             )
@@ -170,10 +178,11 @@ Job: ${env.JOB_NAME}
 Build: #${env.BUILD_NUMBER}
 Status: FAILURE
 
-Build failed or artifact publication was denied.
+The build failed or artifact publication was denied.
+Please check the Jenkins console output for details.
 """
             )
         }
     }
 }
-
+```
