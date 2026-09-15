@@ -1,4 +1,3 @@
-```groovy
 node {
 
     properties([
@@ -185,4 +184,3 @@ Please check the Jenkins console output for details.
         }
     }
 }
-```
