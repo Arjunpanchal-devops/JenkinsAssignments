@@ -1,206 +1,179 @@
-pipeline {
-    agent any
+node {
 
-    options {
-        skipDefaultCheckout(true)
-    }
+    properties([
+        parameters([
+            booleanParam(
+                name: 'SKIP_STABILITY',
+                defaultValue: false,
+                description: 'Skip code stability analysis'
+            ),
+            booleanParam(
+                name: 'SKIP_QUALITY',
+                defaultValue: false,
+                description: 'Skip code quality analysis'
+            ),
+            booleanParam(
+                name: 'SKIP_COVERAGE',
+                defaultValue: false,
+                description: 'Skip code coverage analysis'
+            )
+        ])
+    ])
 
-    parameters {
-        booleanParam(
-            name: 'SKIP_STABILITY',
-            defaultValue: false,
-            description: 'Skip code stability tests'
-        )
-
-        booleanParam(
-            name: 'SKIP_QUALITY',
-            defaultValue: false,
-            description: 'Skip code quality analysis'
-        )
-
-        booleanParam(
-            name: 'SKIP_COVERAGE',
-            defaultValue: false,
-            description: 'Skip code coverage analysis'
-        )
-    }
-
-    tools {
-        jdk 'JDK25'
-        maven 'Maven3.9.12'
-    }
-
-    stages {
+    try {
 
         stage('Code Checkout') {
-            steps {
-                echo 'Checking out Assignment 4 branch'
-                checkout scm
-            }
+            echo 'Checking out Java project'
+            checkout scm
         }
 
         stage('Parallel Scans') {
-            parallel {
 
-                stage('Code Stability') {
-                    when {
-                        expression {
-                            !params.SKIP_STABILITY
-                        }
-                    }
+            def scans = [:]
 
-                    steps {
-                        echo 'Running Code Stability Tests'
-
-                        dir('stability') {
-                            checkout scm
-                            sh 'mvn clean test'
-                        }
-                    }
+            if (!params.SKIP_STABILITY) {
+                scans['Code Stability'] = {
+                    echo 'Running Code Stability Analysis'
+                    sh 'mvn test'
                 }
+            }
 
-                stage('Code Quality Analysis') {
-                    when {
-                        expression {
-                            !params.SKIP_QUALITY
-                        }
-                    }
-
-                    steps {
-                        echo 'Running Code Quality Analysis'
-
-                        dir('quality') {
-                            checkout scm
-                            sh 'mvn clean verify'
-                        }
-                    }
+            if (!params.SKIP_QUALITY) {
+                scans['Code Quality Analysis'] = {
+                    echo 'Running Code Quality Analysis'
+                    sh 'mvn verify'
                 }
+            }
 
-                stage('Code Coverage Analysis') {
-                    when {
-                        expression {
-                            !params.SKIP_COVERAGE
-                        }
-                    }
-
-                    steps {
-                        echo 'Running Code Coverage Analysis'
-
-                        dir('coverage') {
-                            checkout scm
-                            sh 'mvn clean package jacoco:report'
-                        }
-                    }
+            if (!params.SKIP_COVERAGE) {
+                scans['Code Coverage Analysis'] = {
+                    echo 'Running Code Coverage Analysis'
+                    sh 'mvn test jacoco:report'
                 }
+            }
+
+            if (scans.isEmpty()) {
+                echo 'All scans have been skipped.'
+            } else {
+                parallel scans
             }
         }
 
         stage('Generate Report') {
-            steps {
-                echo 'Generating Reports'
 
-                junit 'coverage/target/surefire-reports/*.xml'
+            echo 'Generating code quality and coverage reports'
+
+            if (!params.SKIP_COVERAGE) {
+
+                junit 'target/surefire-reports/*.xml'
 
                 publishHTML([
                     allowMissing: true,
                     alwaysLinkToLastBuild: true,
                     keepAll: true,
-                    reportDir: 'coverage/target/site/jacoco',
+                    reportDir: 'target/site/jacoco',
                     reportFiles: 'index.html',
                     reportName: 'JaCoCo Coverage Report'
                 ])
+
+            } else {
+                echo 'Coverage report skipped.'
             }
         }
 
         stage('Approval') {
-            steps {
+
+            try {
+
                 input(
-                    message: 'Do you approve publishing the artifact?',
+                    message: 'Approve artifact publication?',
                     ok: 'Approve'
                 )
+
+                echo 'Publication APPROVED.'
+
+            } catch (err) {
+
+                echo 'Publication DENIED.'
+                error('Artifact publication was denied.')
+
             }
         }
 
         stage('Publish Artifacts') {
-            steps {
-                echo 'Publishing Java Artifact'
 
-                archiveArtifacts(
-                    artifacts: 'coverage/target/*.jar',
-                    fingerprint: true
-                )
-            }
+            echo 'Building and publishing Java artifact'
+
+            sh 'mvn package -DskipTests'
+
+            archiveArtifacts(
+                artifacts: 'target/*.jar',
+                fingerprint: true
+            )
+
+            echo 'Artifact published successfully.'
         }
-    }
 
-    post {
+        currentBuild.result = 'SUCCESS'
 
-        success {
-            echo 'SUCCESS: Build and artifact publication completed successfully.'
+    } catch (err) {
+
+        currentBuild.result = 'FAILURE'
+
+        echo "Pipeline failed: ${err}"
+
+        throw err
+
+    } finally {
+
+        if (currentBuild.result == 'SUCCESS') {
+
+            echo 'Sending SUCCESS notifications'
 
             slackSend(
                 channel: '#all-jenkins-workspace',
                 color: 'good',
-                message: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER} completed successfully. Artifact published."
+                message: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER} - Build and artifact publication successful."
             )
 
             emailext(
                 to: 'arjunrpanchal09@gmail.com',
                 subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                 body: """
-                    <h2>Jenkins Build Successful</h2>
-                    <p><b>Job:</b> ${env.JOB_NAME}</p>
-                    <p><b>Build Number:</b> #${env.BUILD_NUMBER}</p>
-                    <p><b>Status:</b> SUCCESS</p>
-                    <p>All required stages completed successfully.</p>
-                    <p>Java artifact was published successfully.</p>
-                """
-            )
-        }
+Jenkins Build Successful
 
-        failure {
-            echo 'FAILURE: Build or artifact publication failed.'
+Job: ${env.JOB_NAME}
+Build: #${env.BUILD_NUMBER}
+Status: SUCCESS
+
+Artifact publication completed successfully.
+"""
+            )
+
+        } else {
+
+            echo 'Sending FAILURE notifications'
 
             slackSend(
                 channel: '#all-jenkins-workspace',
                 color: 'danger',
-                message: "FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER} failed. Check Jenkins console."
+                message: "FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER} - Build failed or publication was denied."
             )
 
             emailext(
                 to: 'arjunrpanchal09@gmail.com',
                 subject: "FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                 body: """
-                    <h2>Jenkins Build Failed</h2>
-                    <p><b>Job:</b> ${env.JOB_NAME}</p>
-                    <p><b>Build Number:</b> #${env.BUILD_NUMBER}</p>
-                    <p><b>Status:</b> FAILURE</p>
-                    <p>Build or artifact publication failed.</p>
-                    <p>Please check the Jenkins console for details.</p>
-                """
-            )
-        }
+Jenkins Build Failed
 
-        aborted {
-            echo 'ABORTED: Build was aborted or publication was denied.'
+Job: ${env.JOB_NAME}
+Build: #${env.BUILD_NUMBER}
+Status: FAILURE
 
-            slackSend(
-                channel: '#all-jenkins-workspace',
-                color: 'warning',
-                message: "ABORTED: ${env.JOB_NAME} #${env.BUILD_NUMBER} was aborted or publication was denied."
-            )
-
-            emailext(
-                to: 'arjunrpanchal09@gmail.com',
-                subject: "ABORTED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """
-                    <h2>Jenkins Build Aborted</h2>
-                    <p><b>Job:</b> ${env.JOB_NAME}</p>
-                    <p><b>Build Number:</b> #${env.BUILD_NUMBER}</p>
-                    <p><b>Status:</b> ABORTED</p>
-                    <p>The build was aborted or publication was denied.</p>
-                """
+Build failed or artifact publication was denied.
+"""
             )
         }
     }
 }
+
