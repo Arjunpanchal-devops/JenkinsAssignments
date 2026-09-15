@@ -33,22 +33,37 @@ node {
 
             if (!params.SKIP_STABILITY) {
                 scans['Code Stability'] = {
-                    echo 'Running Code Stability Analysis'
-                    sh 'mvn test'
+                    dir('stability') {
+                        checkout scm
+
+                        echo 'Running Code Stability Analysis'
+
+                        sh 'mvn test'
+                    }
                 }
             }
 
             if (!params.SKIP_QUALITY) {
                 scans['Code Quality Analysis'] = {
-                    echo 'Running Code Quality Analysis'
-                    sh 'mvn verify'
+                    dir('quality') {
+                        checkout scm
+
+                        echo 'Running Code Quality Analysis'
+
+                        sh 'mvn verify'
+                    }
                 }
             }
 
             if (!params.SKIP_COVERAGE) {
                 scans['Code Coverage Analysis'] = {
-                    echo 'Running Code Coverage Analysis'
-                    sh 'mvn test jacoco:report'
+                    dir('coverage') {
+                        checkout scm
+
+                        echo 'Running Code Coverage Analysis'
+
+                        sh 'mvn test jacoco:report'
+                    }
                 }
             }
 
@@ -65,13 +80,13 @@ node {
 
             if (!params.SKIP_COVERAGE) {
 
-                junit 'target/surefire-reports/*.xml'
+                junit 'coverage/target/surefire-reports/*.xml'
 
                 publishHTML([
                     allowMissing: true,
                     alwaysLinkToLastBuild: true,
                     keepAll: true,
-                    reportDir: 'target/site/jacoco',
+                    reportDir: 'coverage/target/site/jacoco',
                     reportFiles: 'index.html',
                     reportName: 'JaCoCo Coverage Report'
                 ])
